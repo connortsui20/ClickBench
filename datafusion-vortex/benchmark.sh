@@ -1,33 +1,39 @@
 #!/bin/bash
 
-set -euo pipefail
+set -Eeuo pipefail
 
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust-init.sh
-bash rust-init.sh -y
-export HOME=${HOME:=~}
+# Install Rust.
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 source ~/.cargo/env
 
-# Install Dependencies
+# Install Dependencies.
 sudo apt-get update -y
 sudo apt-get install -y gcc jq build-essential
 
-# Install Vortex from latest release main branch
-git clone https://github.com/spiraldb/vortex.git || true
+# Install Vortex from latest release main branch.
+git clone https://github.com/vortex-data/vortex.git || true
 cd vortex
-git checkout 0.34.0
+git checkout 0.58.0
 git submodule update --init
-# We build a release version of the benchmarking utility using mimalloc, just like the datafusion-cli
-cargo build --release --bin clickbench --package bench-vortex
-export PATH="`pwd`/target/release:$PATH"
-cd ..
 
-# Vortex's benchmarking utility generates appropriate Vortex files by itself, so we just run it to make sure they exist before we start measuring.
-# This will download parquet files (with time and string columns already converted to the logically correct datatype) and generate Vortex files from them.
+# Make sure to build the release version of the benchmark.
+cargo build --release --package datafusion-bench --bin datafusion-bench
+
+# Vortex's benchmarking utility generates appropriate Vortex files by itself (by downloading Parquet
+# files and converting those into Vortex files), so we just run it once to make sure they exist
+# before we start measuring timing.
 echo -n "Load time: "
-command time -f '%e' clickbench -i 1 --targets datafusion:vortex --display-format gh-json -q 0 --hide-progress-bar --flavor single
+command time -f '%e' ./target/release/datafusion-bench clickbench \
+    -i 1 \
+    --formats vortex \
+    -d gh-json \
+    -q 0 \
+    --hide-progress-bar \
+    --opt flavor=single
 
-# Run benchmarks for single parquet and partitioned, our CLI generates the relevant vortex files.
-./run.sh single
+# Run the benchmark for a single Vortex file (this will download a single Parquet file and convert).
+# Note: run.sh must be run from within the `./vortex` directory so `workspace_root()` can find
+# the `Cargo.lock` file.
+../run.sh single
 
-echo "Data size: $(find . -name '*.vortex' | xargs wc -c | grep total)"
+echo "Data size: $(find . -name "*.vortex" | xargs du -bc | awk 'END {print $1}')"
