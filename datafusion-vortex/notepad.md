@@ -1,9 +1,35 @@
+Script to convert the existing results:
+
+```py
+import json
+import csv
+import sys
+
+def convert(input_path, output_path):
+    with open(input_path) as f:
+        data = json.load(f)
+
+    with open(output_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["benchmark_num", "run_type", "measurement"])
+        for i, runs in enumerate(data["result"]):
+            for run_type, measurement in enumerate(runs):
+                writer.writerow([i, run_type, measurement])
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print(f"Usage: {sys.argv[0]} <input.json> <output.csv>")
+        sys.exit(1)
+    convert(sys.argv[1], sys.argv[2])
+```
+
 Create tables from csv:
 
 ```sql
--- EA
+CREATE TABLE single_34 AS SELECT * FROM read_csv('datafusion-vortex/results-34.csv', header = true, delim = ',', auto_detect = true);
 CREATE TABLE single_58 AS SELECT * FROM read_csv('datafusion-vortex/results-58.csv', header = true, delim = ',', auto_detect = true);
 CREATE TABLE single_develop AS SELECT * FROM read_csv('datafusion-vortex/results-develop.csv', header = true, delim = ',', auto_detect = true);
+CREATE TABLE partitioned_44 AS SELECT * FROM read_csv('datafusion-vortex-partitioned/results-44.csv', header = true, delim = ',', auto_detect = true);
 CREATE TABLE partitioned_58 AS SELECT * FROM read_csv('datafusion-vortex-partitioned/results-58.csv', header = true, delim = ',', auto_detect = true);
 CREATE TABLE partitioned_develop AS SELECT * FROM read_csv('datafusion-vortex-partitioned/results-develop.csv', header = true, delim = ',', auto_detect = true);
 DESCRIBE;
@@ -17,8 +43,10 @@ D DESCRIBE;
 │ database │ schema  │        name         │              column_names              │       column_types       │ temporary │
 │ varchar  │ varchar │       varchar       │               varchar[]                │        varchar[]         │  boolean  │
 ├──────────┼─────────┼─────────────────────┼────────────────────────────────────────┼──────────────────────────┼───────────┤
+│ memory   │ main    │ partitioned_44      │ [benchmark_num, run_type, measurement] │ [BIGINT, BIGINT, DOUBLE] │ false     │
 │ memory   │ main    │ partitioned_58      │ [benchmark_num, run_type, measurement] │ [BIGINT, BIGINT, DOUBLE] │ false     │
 │ memory   │ main    │ partitioned_develop │ [benchmark_num, run_type, measurement] │ [BIGINT, BIGINT, DOUBLE] │ false     │
+│ memory   │ main    │ single_34           │ [benchmark_num, run_type, measurement] │ [BIGINT, BIGINT, DOUBLE] │ false     │
 │ memory   │ main    │ single_58           │ [benchmark_num, run_type, measurement] │ [BIGINT, BIGINT, DOUBLE] │ false     │
 │ memory   │ main    │ single_develop      │ [benchmark_num, run_type, measurement] │ [BIGINT, BIGINT, DOUBLE] │ false     │
 └──────────┴─────────┴─────────────────────┴────────────────────────────────────────┴──────────────────────────┴───────────┘
